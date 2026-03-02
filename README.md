@@ -25,7 +25,7 @@ Out of scope: medical diagnoses/interactions, general diet planning, and shoppin
 ## Request flow
 
 1. User sends text (optional image attached) to `/chat`.
-2. Python **pre-backstop** classifies the message (`distress`, `medical`, `nutrition_or_diet`, `shopping_or_pricing`, `ok`).
+2. Python **pre-backstop** classifies the message (`distress`, `medical`, `nutrition_or_diet`, `shopping_or_pricing`, `non_supplement`, `ok`).
 3. If out-of-scope, app returns a category-specific redirect response and stops normal analysis.
 4. If `ok`, app runs normal supplement analysis with the main LLM prompt.
 5. Python **post-backstop** checks the generated output and overrides unsafe medical-style advice if detected.
@@ -133,7 +133,7 @@ Open [http://localhost:8000](http://localhost:8000).
 - **Preview fallback:** if browser cannot render preview image, UI shows `label attached`
 - **Error handling:** internal LLM exceptions are logged server-side; users receive a generic retry message
 - **Auth by default on deploy:** Cloud Run deploy config uses `--no-allow-unauthenticated`
-- **Pre-backstop categories:** `distress`, `medical`, `nutrition_or_diet`, `shopping_or_pricing`
+- **Pre-backstop categories:** `distress`, `medical`, `nutrition_or_diet`, `shopping_or_pricing`, `non_supplement`
 - **Post-backstop:** overrides unsafe medical-style output with a safe medical redirect
 - **GIF query behavior:** generated from a short main-ingredient summary (2-3 words), then searched on Giphy
 - **Visitor counter in UI:** shows unique visitors seen by this running app instance (cookie + in-memory counter)
@@ -343,7 +343,7 @@ gcloud run services describe label-lens \
 - **Few-shot examples (3):** Proprietary blend decode, creatine question, enzyme blend claim
 - **Positive constraints:** Lists exactly what it can answer
 - **Escape hatch:** "The evidence is limited — check Examine.com or PubMed"
-- **Out-of-scope routing categories (pre-backstop):** Distress, medical, nutrition/diet planning, shopping/pricing
+- **Out-of-scope routing categories (pre-backstop):** Distress, medical, nutrition/diet planning, shopping/pricing, generic non-supplement queries
 - **Jailbreak-aware medical routing:** catches instruction-override patterns, lab/biomarker protocol prompts, and routes them to medical refusal
 - **Python pre-backstop:** `classify_message()` routes out-of-scope categories before normal analysis
 - **Python post-backstop:** `apply_post_backstop()` overrides unsafe medical-style output if it slips through

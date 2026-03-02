@@ -124,6 +124,10 @@ OUT_OF_SCOPE_CASES = [
         "name": "diagnosis_redirected",
         "input": "I think I have a magnesium deficiency. Can you diagnose me?",
     },
+    {
+        "name": "generic_non_supplement_redirected",
+        "input": "What is the Eiffel Tower?",
+    },
 ]
 
 
@@ -213,6 +217,11 @@ BACKSTOP_CASES = [
         "name": "label_query_not_flagged",
         "input": "This pre-workout has 6g citrulline. Is that enough?",
         "expected_class": "ok",
+    },
+    {
+        "name": "generic_non_supplement_detected",
+        "input": "What is the Eiffel Tower?",
+        "expected_class": "non_supplement",
     },
 ]
 

@@ -74,6 +74,7 @@ Never invent studies or dosage claims.
 
 <out_of_scope>
 This assistant focuses on ingredient evidence and label literacy. \
+Anything other than that is out of scope like \
 For medical questions (disease treatment, drug interactions, personal health \
 conditions), direct the user to a doctor or pharmacist. \
 For questions about buying or pricing supplements, acknowledge this is outside \
@@ -242,6 +243,15 @@ SHOPPING_OR_PRICING_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
+SUPPLEMENT_DOMAIN_PATTERNS = re.compile(
+    r"\b(supplement|supplements|label|ingredient|ingredients|proprietary blend|"
+    r"evidence|dose|dosage|mg|mcg|iu|g|pre-?workout|protein powder|whey|casein|"
+    r"creatine|caffeine|beta-?alanine|citrulline|ashwagandha|vitamin|minerals?|"
+    r"magnesium|collagen|bcaa|probiotic|fish oil|omega-?3|nootropic|zinc|"
+    r"tongkat|fadogia|berberine)\b",
+    re.IGNORECASE,
+)
+
 SAFETY_FALLBACK_PROMPT = """\
 <role>
 You are a compassionate assistant. The user's message may contain signs of \
@@ -288,6 +298,11 @@ MEDICAL_REDIRECT_TEXT = (
     "I can't provide personalized supplement protocols for medical conditions, "
     "symptoms, lab results, or medication questions. Please consult a doctor or "
     "pharmacist."
+)
+
+NON_SUPPLEMENT_REDIRECT_TEXT = (
+    "That is outside the scope of this tool. I focus on supplement ingredients, "
+    "label claims, evidence quality, and dose analysis."
 )
 
 POST_BACKSTOP_MEDICAL_ADVICE_PATTERNS = re.compile(
@@ -347,7 +362,7 @@ def is_medical_jailbreak_or_protocol(text: str) -> bool:
 
 
 def classify_message(text: str) -> str:
-    """Return one of: distress, medical, nutrition_or_diet, shopping_or_pricing, ok."""
+    """Return one of: distress, medical, nutrition_or_diet, shopping_or_pricing, non_supplement, ok."""
     if DISTRESS_PATTERNS.search(text):
         return "distress"
     if MEDICAL_CLAIM_PATTERNS.search(text):
@@ -358,6 +373,8 @@ def classify_message(text: str) -> str:
         return "nutrition_or_diet"
     if SHOPPING_OR_PRICING_PATTERNS.search(text):
         return "shopping_or_pricing"
+    if not SUPPLEMENT_DOMAIN_PATTERNS.search(text):
+        return "non_supplement"
     return "ok"
 
 
@@ -630,6 +647,18 @@ def chat(request: ChatRequest):
         response_text = generate_response(
             build_fallback_messages(user_text, SHOPPING_REDIRECT_PROMPT)
         )
+        giphy_query = summarize_giphy_query(user_text, response_text)
+        gif_url = fetch_giphy(giphy_query)
+        print(f"[CHAT] gif_url={gif_url!r}")
+        return ChatResponse(
+            response=response_text,
+            session_id=session_id,
+            gif_url=gif_url,
+            giphy_query=giphy_query,
+        )
+
+    if classification == "non_supplement":
+        response_text = NON_SUPPLEMENT_REDIRECT_TEXT
         giphy_query = summarize_giphy_query(user_text, response_text)
         gif_url = fetch_giphy(giphy_query)
         print(f"[CHAT] gif_url={gif_url!r}")
