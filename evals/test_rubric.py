@@ -6,8 +6,16 @@ Pass threshold: >= 6/10.
 """
 
 import json
+import os
+
+import pytest
 
 from conftest import get_response, judge_with_rubric
+
+pytestmark = pytest.mark.skipif(
+    os.getenv("RUN_LIVE_EVALS", "0") != "1",
+    reason="Live LLM evals are disabled. Set RUN_LIVE_EVALS=1 to enable.",
+)
 
 RUBRIC = json.dumps(
     [

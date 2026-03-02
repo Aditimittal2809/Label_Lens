@@ -9,7 +9,16 @@ Each response is judged against a reference answer by a judge model (MaaJ).
 Pass threshold: >= 6/10.
 """
 
+import os
+
+import pytest
+
 from conftest import get_response, judge_with_golden
+
+pytestmark = pytest.mark.skipif(
+    os.getenv("RUN_LIVE_EVALS", "0") != "1",
+    reason="Live LLM evals are disabled. Set RUN_LIVE_EVALS=1 to enable.",
+)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 1. In-domain golden examples (10)
