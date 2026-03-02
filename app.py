@@ -14,14 +14,14 @@ from fastapi.responses import FileResponse
 from litellm import completion
 from pydantic import BaseModel
 
-load_dotenv()
+load_dotenv(override = True)
 
 # --- Config ---
 
 MODEL = os.getenv("MODEL", "vertex_ai/gemini-2.5-flash-lite")
 LITELLM_API_BASE = os.getenv("LITELLM_API_BASE")
 LITELLM_API_KEY = os.getenv("LITELLM_API_KEY")
-GIPHY_API_KEY = os.getenv("GIPHY_API_KEY", "")
+GIPHY_API_KEY = os.getenv("GIPHY_API_KEY", "").strip()
 
 print(f"[STARTUP] MODEL={MODEL}")
 print(f"[STARTUP] GIPHY_API_KEY={'SET' if GIPHY_API_KEY else 'NOT SET'}")

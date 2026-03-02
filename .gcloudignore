@@ -3,5 +3,3 @@ __pycache__
 .pytest_cache
 .git
 .env
-uv.lock
-.DS_Store
