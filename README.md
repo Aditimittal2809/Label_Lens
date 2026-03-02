@@ -2,7 +2,7 @@
 
 A chatbot that decodes supplement labels and calls out marketing fluff — telling you what the evidence actually says about each ingredient. Supports both **text input** and **image upload** (photograph a label directly), plus a contextual reaction GIF.
 
-**Live URL:** _https://label-lens-648786197436.us-central1.run.app_
+**Live URL:** _https://label-lens-966650518000.us-central1.run.app/_
 
 ---
 
