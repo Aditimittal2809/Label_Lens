@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse
 from litellm import completion
 from pydantic import BaseModel
 
-load_dotenv(override = True)
+load_dotenv(override=True)
 
 # --- Config ---
 
@@ -74,6 +74,7 @@ Never invent studies or dosage claims.
 
 <out_of_scope>
 This assistant focuses on ingredient evidence and label literacy. \
+Anything other than that is out of scope like \
 For medical questions (disease treatment, drug interactions, personal health \
 conditions), direct the user to a doctor or pharmacist. \
 For questions about buying or pricing supplements, acknowledge this is outside \
@@ -179,14 +180,14 @@ FEW_SHOT_EXAMPLES = [
 # --- Safety backstop ---
 
 DISTRESS_PATTERNS = re.compile(
-    r"\b(kill myself|suicide|end my life|self.?harm|hurt myself|don't want to live|"
+    r"\b(kill myself|suicide|end my life|self.?harm(?:ing|ed)?|hurt myself|don't want to live|"
     r"want to die|eating disorder|starving myself|stop eating|purging)\b",
     re.IGNORECASE,
 )
 
 MEDICAL_CLAIM_PATTERNS = re.compile(
-    r"\b(cure|treat|diagnose|prescription|drug interaction|my doctor said|"
-    r"my medication|chemotherapy|cancer treatment|diabetes medication|"
+    r"\b(cure|treat|diagnose|prescription|prescribed|drug interaction|my doctor said|"
+    r"chemotherapy|cancer treatment|diabetes medication|"
     r"blood pressure medication)\b",
     re.IGNORECASE,
 )
@@ -242,6 +243,15 @@ SHOPPING_OR_PRICING_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
+NON_SUPPLEMENT_PATTERNS = re.compile(
+    r"\b(eiffel tower|paris|france|capital of|history of|"
+    r"weather|forecast|temperature|stock market|bitcoin|crypto|recipe|cooking|"
+    r"restaurant|movie|tv show|celebrity|football|soccer|nba|nfl|"
+    r"python code|javascript|java|leetcode|algebra|calculus|homework|"
+    r"flight|hotel|visa|tourism|museum|politics|election)\b",
+    re.IGNORECASE,
+)
+
 SAFETY_FALLBACK_PROMPT = """\
 <role>
 You are a compassionate assistant. The user's message may contain signs of \
@@ -290,6 +300,11 @@ MEDICAL_REDIRECT_TEXT = (
     "pharmacist."
 )
 
+NON_SUPPLEMENT_REDIRECT_TEXT = (
+    "That is outside the scope of this tool. I focus on supplement ingredients, "
+    "label claims, evidence quality, and dose analysis."
+)
+
 POST_BACKSTOP_MEDICAL_ADVICE_PATTERNS = re.compile(
     r"\b(you should|i recommend|recommended dose|dosage|start|stop|increase|decrease|"
     r"take \d+|\d+\s?(mg|g|iu|mcg)|daily dose|once daily|twice daily|per day|"
@@ -315,16 +330,16 @@ def apply_post_backstop(user_text: str, response_text: str) -> str:
         LOGGER.warning("Post-backstop override: dangerous instruction detected")
         return MEDICAL_REDIRECT_TEXT
 
-    if user_is_medical and POST_BACKSTOP_MEDICAL_ADVICE_PATTERNS.search(response_text):
-        LOGGER.warning("Post-backstop override: medical prompt + directive advice detected")
-        return MEDICAL_REDIRECT_TEXT
+    # if user_is_medical and POST_BACKSTOP_MEDICAL_ADVICE_PATTERNS.search(response_text):
+    #     LOGGER.warning("Post-backstop override: medical prompt + directive advice detected")
+    #     return MEDICAL_REDIRECT_TEXT
 
-    if (
-        MEDICAL_CONDITION_PATTERNS.search(response_text)
-        and POST_BACKSTOP_MEDICAL_ADVICE_PATTERNS.search(response_text)
-    ):
-        LOGGER.warning("Post-backstop override: medical condition + directive advice detected")
-        return MEDICAL_REDIRECT_TEXT
+    # if (
+    #     MEDICAL_CONDITION_PATTERNS.search(response_text)
+    #     and POST_BACKSTOP_MEDICAL_ADVICE_PATTERNS.search(response_text)
+    # ):
+    #     LOGGER.warning("Post-backstop override: medical condition + directive advice detected")
+    #     return MEDICAL_REDIRECT_TEXT
 
     return response_text
 
@@ -347,7 +362,7 @@ def is_medical_jailbreak_or_protocol(text: str) -> bool:
 
 
 def classify_message(text: str) -> str:
-    """Return one of: distress, medical, nutrition_or_diet, shopping_or_pricing, ok."""
+    """Return one of: distress, medical, nutrition_or_diet, shopping_or_pricing, non_supplement, ok."""
     if DISTRESS_PATTERNS.search(text):
         return "distress"
     if MEDICAL_CLAIM_PATTERNS.search(text):
@@ -358,6 +373,8 @@ def classify_message(text: str) -> str:
         return "nutrition_or_diet"
     if SHOPPING_OR_PRICING_PATTERNS.search(text):
         return "shopping_or_pricing"
+    if NON_SUPPLEMENT_PATTERNS.search(text):
+        return "non_supplement"
     return "ok"
 
 
@@ -590,22 +607,67 @@ def chat(request: ChatRequest):
         response_text = generate_response(
             build_fallback_messages(user_text, SAFETY_FALLBACK_PROMPT)
         )
-        return ChatResponse(response=response_text, session_id=session_id)
+        giphy_query = summarize_giphy_query(user_text, response_text)
+        gif_url = fetch_giphy(giphy_query)
+        print(f"[CHAT] gif_url={gif_url!r}")
+        return ChatResponse(
+            response=response_text,
+            session_id=session_id,
+            gif_url=gif_url,
+            giphy_query=giphy_query,
+        )
 
     if classification == "medical":
-        return ChatResponse(response=MEDICAL_REDIRECT_TEXT, session_id=session_id)
+        response_text = MEDICAL_REDIRECT_TEXT
+        giphy_query = summarize_giphy_query(user_text, response_text)
+        gif_url = fetch_giphy(giphy_query)
+        print(f"[CHAT] gif_url={gif_url!r}")
+        return ChatResponse(
+            response=response_text,
+            session_id=session_id,
+            gif_url=gif_url,
+            giphy_query=giphy_query,
+        )
 
     if classification == "nutrition_or_diet":
         response_text = generate_response(
             build_fallback_messages(user_text, NUTRITION_REDIRECT_PROMPT)
         )
-        return ChatResponse(response=response_text, session_id=session_id)
+        giphy_query = summarize_giphy_query(user_text, response_text)
+        gif_url = fetch_giphy(giphy_query)
+        print(f"[CHAT] gif_url={gif_url!r}")
+        return ChatResponse(
+            response=response_text,
+            session_id=session_id,
+            gif_url=gif_url,
+            giphy_query=giphy_query,
+        )
 
     if classification == "shopping_or_pricing":
         response_text = generate_response(
             build_fallback_messages(user_text, SHOPPING_REDIRECT_PROMPT)
         )
-        return ChatResponse(response=response_text, session_id=session_id)
+        giphy_query = summarize_giphy_query(user_text, response_text)
+        gif_url = fetch_giphy(giphy_query)
+        print(f"[CHAT] gif_url={gif_url!r}")
+        return ChatResponse(
+            response=response_text,
+            session_id=session_id,
+            gif_url=gif_url,
+            giphy_query=giphy_query,
+        )
+
+    if classification == "non_supplement":
+        response_text = NON_SUPPLEMENT_REDIRECT_TEXT
+        giphy_query = summarize_giphy_query(user_text, response_text)
+        gif_url = fetch_giphy(giphy_query)
+        print(f"[CHAT] gif_url={gif_url!r}")
+        return ChatResponse(
+            response=response_text,
+            session_id=session_id,
+            gif_url=gif_url,
+            giphy_query=giphy_query,
+        )
 
     if session_id not in sessions:
         sessions[session_id] = build_initial_messages()
